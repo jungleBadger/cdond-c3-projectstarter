@@ -22,6 +22,8 @@ commands:
 #   revert-migration:
 #     description: Revert the last migration if successfully run in the current workflow.
 #     ...
+orbs:
+  slack: circleci/slack@3.4.2
 
 jobs:
   build-frontend:
@@ -35,6 +37,7 @@ jobs:
           name: Building Frontend
           command: |
             cd frontend && npm run build
+      - slack/notify-on-failure
 
   build-backend:
     docker:
@@ -47,6 +50,7 @@ jobs:
           name: Building Backend
           command: |
             cd backend && npm run build
+      - slack/notify-on-failure
 
   test-frontend:
     docker:
@@ -66,6 +70,7 @@ jobs:
             JEST_JUNIT_OUTPUT_DIR: "./reports/junit/"
       - store_test_results:
           path: ./frontend/reports/junit/
+      - slack/notify-on-failure
 
   test-backend:
     docker:
@@ -85,6 +90,7 @@ jobs:
             JEST_JUNIT_OUTPUT_DIR: "./reports/junit/"
       - store_test_results:
           path: ./frontend/reports/junit/
+      - slack/notify-on-failure
 
   audit-frontend:
     docker:
@@ -97,7 +103,8 @@ jobs:
           name: Audit Frontend
           command: |
             cd frontend
-            npm audit fix --audit-level=critical --force
+            npm audit --audit-level=critical
+      - slack/notify-on-failure
 
   audit-backend:
     docker:
@@ -110,7 +117,8 @@ jobs:
           name: Audit Backend
           command: |
             cd backend
-            npm audit fix --audit-level=critical --force
+            npm audit --audit-level=critical
+      - slack/notify-on-failure
 
 #  deploy-infrastructure:
 
