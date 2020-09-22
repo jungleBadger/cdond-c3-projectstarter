@@ -3,6 +3,7 @@ version: 2.1
 ### It's a good practice to keep your commands at the top of the config file. In this project, you'll need at least 2 commands:
 
 commands:
+  # This command expects a parameter called 'end'
   npm-install:
     parameters:
       end:
@@ -47,9 +48,43 @@ jobs:
           command: |
             cd backend && npm run build
 
-#  test-frontend:
+  test-frontend:
+    docker:
+      - image: circleci/node
+    steps:
+      - checkout
+      - npm-install:
+          end: "frontend"
+      - run:
+          name: Test Frontend
+          command: |
+            cd frontend
+            mkdir -p ./reports/junit/
+            npm install --save-dev jest-junit jest-junit-reporter
+            ./node_modules/.bin/jest --ci --runInBand --reporters=default --reporters=jest-junit
+          environment:
+            JEST_JUNIT_OUTPUT_DIR: "./reports/junit/"
+      - store_test_results:
+          path: ./frontend/reports/junit/
 
-#  est-backend:
+  test-backend:
+    docker:
+      - image: circleci/node
+    steps:
+      - checkout
+      - npm-install:
+          end: "frontend"
+      - run:
+          name: Test Frontend
+          command: |
+            cd frontend
+            mkdir -p ./reports/junit/
+            npm install --save-dev jest-junit jest-junit-reporter
+            ./node_modules/.bin/jest --ci --runInBand --reporters=default --reporters=jest-junit
+          environment:
+            JEST_JUNIT_OUTPUT_DIR: "./reports/junit/"
+      - store_test_results:
+          path: ./frontend/reports/junit/
 
 #  can-frontend:
 
