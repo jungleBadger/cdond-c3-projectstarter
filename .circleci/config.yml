@@ -140,7 +140,7 @@ jobs:
       - run:
           name: Deploy the backend infrastructure using cloudformation
           command: |
-            yum install tar
+            yum -y install tar
             cd .circleci/files
             aws cloudformation deploy \
               --template-file backend.yml \
