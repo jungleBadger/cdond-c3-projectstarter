@@ -132,7 +132,7 @@ jobs:
             npm audit fix --audit-level=critical --force
       - slack/notify-on-failure
 
-  deploy_backend_infrastructure:
+  deploy-backend-infrastructure:
     docker:
       - image: amazon/aws-cli
     steps:
@@ -161,7 +161,7 @@ jobs:
       - destroy_environment:
           workflow_id: "${CIRCLE_WORKFLOW_ID:0:7}"
 
-  deploy_frontend_infrastructure:
+  deploy-frontend-infrastructure:
     docker:
       - image: amazon/aws-cli
     steps:
@@ -176,7 +176,7 @@ jobs:
       - destroy_environment:
           workflow_id: "${CIRCLE_WORKFLOW_ID:0:7}"
 
-  deploy_cloudfront_infrastructure:
+  deploy-cloudfront-infrastructure:
     docker:
       - image: amazon/aws-cli
     steps:
@@ -238,7 +238,7 @@ workflows:
       - deploy-frontend-infrastructure:
           requires:
             - audit-frontend
-      - deploy_cloudfront_infrastructure:
+      - deploy-cloudfront-infrastructure:
           requires:
             - audit-backend
             - audit-frontend
