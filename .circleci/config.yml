@@ -170,7 +170,7 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Deploy the backend infrastructure using cloudformation
+          name: Deploy the frontend infrastructure using cloudformation
           command: |
             cd .circleci/files
             aws cloudformation deploy \
@@ -194,7 +194,7 @@ jobs:
             echo "$PREVIOUS_BUCKET_ID_SUFFIX" >> .circleci/outputs/previous_bucket_id_suffix.txt
             cat .circleci/outputs/previous_bucket_id_suffix.txt
       - run:
-          name: Deploy the backend infrastructure using cloudformation
+          name: Deploy the cloudfront infrastructure using cloudformation
           command: |
             cd .circleci/files
             aws cloudformation deploy \
