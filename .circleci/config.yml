@@ -120,7 +120,67 @@ jobs:
             npm audit fix --audit-level=critical --force
       - slack/notify-on-failure
 
-#  deploy-infrastructure:
+  deploy-infrastructure:
+    executor: aws-cli/default
+    steps:
+      - checkout
+      - aws-cli/setup:
+          profile-name: default
+      - run: mkdir /tmp/saveme
+      - run:
+          name: Deploy backend infrastructure
+          command: |
+            cd .circleci/files
+            aws cloudformation deploy \
+              --template-file backend.yml \
+              --stack-name "backend-${CIRCLE_WORKFLOW_ID:0:7}" \
+              --parameter-overrides ID="backend-deployment-${CIRCLE_WORKFLOW_ID:0:7}"
+      - run:
+          name: Get and save public DNS of EC2 instance to https://memstash.io/
+          command: |
+            PUBLIC_DNS=$(aws ec2 describe-instances --region ${AWS_DEFAULT_REGION} \
+            --filters "Name=tag:Name,Values=backend-${CIRCLE_WORKFLOW_ID:0:7}" \
+            --query "Reservations[*].Instances[0].PublicDnsName" \
+            --output text) > /tmp/saveme/public_dns.txt
+      - persist_to_workspace:
+          root: /tmp/saveme
+          paths:
+            - public_dns.txt
+      - run:
+          name: Backend failure describe
+          command: |
+            aws cloudformation describe-stack-events --stack-name "backend-${CIRCLE_WORKFLOW_ID:0:7}"
+          when: on_fail
+      - run:
+          name: Save URL
+          command: |
+            aws ec2 describe-instances --filters "Name=tag:Name,Values=backend-backend-deployment-${CIRCLE_WORKFLOW_ID:0:7}" \
+              --query "Reservations[*].Instances[*].[PublicDnsName]" \
+              --output text > /tmp/saveme/backend_url.txt
+      - persist_to_workspace:
+          root: /tmp/saveme
+          paths:
+            - backend_url.txt
+      - run:
+          name: Save old bucket arn
+          command: echo "arn:aws:s3:::`aws s3 ls | awk '{ print $3 } ' | grep udapeople-frontend-deployment`" > /tmp/saveme/old_s3arn.txt
+      - persist_to_workspace:
+          root: /tmp/saveme
+          paths:
+            - old_s3arn.txt
+      - run:
+          name: Deploy frontend infrastructure
+          command: |
+            cd .circleci/files
+            aws cloudformation deploy --template-file frontend.yml \
+              --stack-name "frontend-${CIRCLE_WORKFLOW_ID:0:7}" \
+              --parameter-overrides ID="frontend-deployment-${CIRCLE_WORKFLOW_ID:0:7}" \
+              --tags project=udacity
+      - run:
+          name: Frontend failure describe
+          command: |
+            aws cloudformation describe-stack-events --stack-name "frontend-${CIRCLE_WORKFLOW_ID:0:7}"
+          when: on_fail
 
 #  configure-infrastructure:
 
@@ -151,3 +211,7 @@ workflows:
       - audit-backend:
           requires:
             - test-backend
+      - deploy-infrastructure:
+          requires:
+            - audit-frontend
+            - audit-backend
