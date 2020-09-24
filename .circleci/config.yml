@@ -245,5 +245,5 @@ workflows:
             - audit-frontend
       - deploy-cloudfront-infrastructure:
           requires:
-            - audit-backend
-            - audit-frontend
+            - deploy-frontend-infrastructure
+            - deploy-backend-infrastructure
