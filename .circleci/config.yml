@@ -15,9 +15,20 @@ commands:
             cd << parameters.end >>
             npm i
 
-#   destroy-environment:
-#     description: Destroy backend and frontend cloudformation stacks given a workflow ID.
-#     ...
+  destroy_environment:
+    description: Destroy backend and frontend cloudformation stacks given a workflow ID.
+    parameters:
+      workflow_id:
+        type: string
+    steps:
+      - run:
+          name: Destroy environments
+          when: on_fail
+          command: |
+            echo "Destroying environment: <<parameters.workflow_id>> "
+            aws s3 rm s3://udapeople-<<parameters.workflow_id>> --recursive
+            aws cloudformation delete-stack --stack-name udapeople-prod-backend-<<parameters.workflow_id>>
+            aws cloudformation delete-stack --stack-name udapeople-prod-frontend-<<parameters.workflow_id>>
 
 #   revert-migration:
 #     description: Revert the last migration if successfully run in the current workflow.
@@ -121,72 +132,76 @@ jobs:
             npm audit fix --audit-level=critical --force
       - slack/notify-on-failure
 
-  deploy-infrastructure:
-    executor: aws-cli/default
+  deploy_backend_infrastructure:
+    docker:
+      - image: amazon/aws-cli
     steps:
       - checkout
-      - aws-cli/setup:
-          profile-name: default
-      - run: mkdir /tmp/saveme
       - run:
-          name: Deploy backend infrastructure
+          name: Deploy the backend infrastructure using cloudformation
           command: |
-            cd .circleci/files
             aws cloudformation deploy \
-              --template-file backend.yml \
-              --stack-name "backend-${CIRCLE_WORKFLOW_ID:0:7}" \
-              --parameter-overrides ID="backend-deployment-${CIRCLE_WORKFLOW_ID:0:7}"
+              --template-file files/backend_infrastructure.yml \
+              --parameter-overrides ID="prod-${CIRCLE_WORKFLOW_ID:0:7}" \
+              --stack-name udapeople-prod-backend-${CIRCLE_WORKFLOW_ID:0:7}
       - run:
-          name: Get and save public DNS of EC2 instance to https://memstash.io/
+          name: Save backend URL and IP (for ansible)
           command: |
-            PUBLIC_DNS=$(aws ec2 describe-instances --region ${AWS_DEFAULT_REGION} \
-            --filters "Name=tag:Name,Values=backend-${CIRCLE_WORKFLOW_ID:0:7}" \
-            --query "Reservations[*].Instances[0].PublicDnsName" \
-            --output text) > /tmp/saveme/public_dns.txt
+            BACKEND_AWS_PUBLIC_IP=$(aws ec2 describe-instances \
+              --filters "Name=tag:Name,Values=backend-${CIRCLE_WORKFLOW_ID:0:7}" \
+              --query 'Reservations[*].Instances[*].PublicIpAddress' \
+              --output text)
+            echo "[all]\n$BACKEND_AWS_PUBLIC_IP" >> .circleci/ansible/inventory.txt
+            echo "http://${BACKEND_AWS_PUBLIC_IP}:3030" >> .circleci/outputs/backend_url.txt
+            cat .circleci/outputs/backend_url.txt
       - persist_to_workspace:
-          root: /tmp/saveme
+          root: ~/
           paths:
-            - public_dns.txt
+            - project/.circleci/outputs/backend_url.txt
+      - destroy_environment:
+          workflow_id: "${CIRCLE_WORKFLOW_ID:0:7}"
+
+  deploy_frontend_infrastructure:
+    docker:
+      - image: amazon/aws-cli
+    steps:
+      - checkout
       - run:
-          name: Backend failure describe
+          name: Deploy the backend infrastructure using cloudformation
           command: |
-            aws cloudformation describe-stack-events --stack-name "backend-${CIRCLE_WORKFLOW_ID:0:7}"
-          when: on_fail
+            aws cloudformation deploy \
+              --template-file files/frontend_infrastructure.yml \
+              --parameter-overrides ID="prod-${CIRCLE_WORKFLOW_ID:0:7}" \
+              --stack-name udapeople-prod-frontend-${CIRCLE_WORKFLOW_ID:0:7}
+      - destroy_environment:
+          workflow_id: "${CIRCLE_WORKFLOW_ID:0:7}"
+
+  deploy_cloudfront_infrastructure:
+    docker:
+      - image: amazon/aws-cli
+    steps:
+      - checkout
       - run:
-          name: Save URL
+          name: Save previous bucket id suffix
           command: |
-            aws ec2 describe-instances --filters "Name=tag:Name,Values=backend-backend-deployment-${CIRCLE_WORKFLOW_ID:0:7}" \
-              --query "Reservations[*].Instances[*].[PublicDnsName]" \
-              --output text > /tmp/saveme/backend_url.txt
+            PREVIOUS_BUCKET_ID_SUFFIX=$(aws cloudformation \
+                          list-exports --query "Exports[?Name==\`BucketIdSuffix\`].Value" \
+                          --no-paginate --output text)
+            echo "$PREVIOUS_BUCKET_ID_SUFFIX" >> .circleci/outputs/previous_bucket_id_suffix.txt
+            cat .circleci/outputs/previous_bucket_id_suffix.txt
+      - run:
+          name: Deploy the backend infrastructure using cloudformation
+          command: |
+            aws cloudformation deploy \
+              --template-file files/cloudfront_infrastructure.yml \
+              --parameter-overrides ID="prod-${CIRCLE_WORKFLOW_ID:0:7}" \
+              --stack-name udapeople-prod-frontend-${CIRCLE_WORKFLOW_ID:0:7}
       - persist_to_workspace:
-          root: /tmp/saveme
+          root: ~/
           paths:
-            - backend_url.txt
-      - run:
-          name: Save old bucket arn
-          command: echo "arn:aws:s3:::`aws s3 ls | awk '{ print $3 } ' | grep udapeople-frontend-deployment`" > /tmp/saveme/old_s3arn.txt
-      - persist_to_workspace:
-          root: /tmp/saveme
-          paths:
-            - old_s3arn.txt
-      - run:
-          name: Deploy frontend infrastructure
-          command: |
-            cd .circleci/files
-            aws cloudformation deploy --template-file frontend.yml \
-              --stack-name "frontend-${CIRCLE_WORKFLOW_ID:0:7}" \
-              --parameter-overrides ID="frontend-deployment-${CIRCLE_WORKFLOW_ID:0:7}" \
-              --tags project=udacity
-      - run:
-          name: Frontend failure describe
-          command: |
-            aws cloudformation describe-stack-events --stack-name "frontend-${CIRCLE_WORKFLOW_ID:0:7}"
-          when: on_fail
-      - run:
-          name: Backend failure describe
-          command: |
-            aws cloudformation describe-stack-events --stack-name "backend-${CIRCLE_WORKFLOW_ID:0:7}"
-          when: on_fail
+            - project/.circleci/outputs/previous_bucket_id_suffix.txt
+      - destroy_environment:
+          workflow_id: "${CIRCLE_WORKFLOW_ID:0:7}"
 
 #  configure-infrastructure:
 
@@ -217,7 +232,13 @@ workflows:
       - audit-backend:
           requires:
             - test-backend
-      - deploy-infrastructure:
+      - deploy-backend-infrastructure:
+          requires:
+            - audit-backend
+      - deploy-frontend-infrastructure:
           requires:
             - audit-frontend
+      - deploy_cloudfront_infrastructure:
+          requires:
             - audit-backend
+            - audit-frontend
