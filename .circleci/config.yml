@@ -196,6 +196,8 @@ jobs:
       - run:
           name: Deploy the cloudfront infrastructure using cloudformation
           command: |
+            yum -y install tar
+            yum -y install gzip
             cd .circleci/files
             aws cloudformation deploy \
               --template-file cloudfront.yml \
