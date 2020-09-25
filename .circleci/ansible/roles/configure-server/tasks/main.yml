@@ -41,8 +41,8 @@
     echo "ENVIRONMENT=production" >> /etc/environment
     echo "TYPEORM_CONNECTION=postgres" >> /etc/environment
     echo "TYPEORM_ENTITIES=./src/modules/domain/**/*.entity.ts" >> /etc/environment
-    echo "TYPEORM_HOST=udacity-project-three-db.cn6hugvqdodg.us-west-2.rds.amazonaws.com" >> /etc/environment
+    echo "TYPEORM_HOST=udacity.cn6hugvqdodg.us-west-2.rds.amazonaws.com" >> /etc/environment
     echo "TYPEORM_PORT=5432" >> /etc/environment
-    echo "TYPEORM_USERNAME=masterUsername" >> /etc/environment
-    echo "TYPEORM_PASSWORD=masterpassword" >> /etc/environment
-    echo "TYPEORM_DATABASE=udacity-project-three-db" >> /etc/environment
+    echo "TYPEORM_USERNAME=postgres" >> /etc/environment
+    echo "TYPEORM_PASSWORD=password" >> /etc/environment
+    echo "TYPEORM_DATABASE=udacity" >> /etc/environment
