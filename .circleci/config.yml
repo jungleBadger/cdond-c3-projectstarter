@@ -247,9 +247,10 @@ jobs:
           end: "backend"
       - run:
           name: Run DB migrations
+          # added second line - npm install -----------------------
           command: |
             pushd backend || exit
-            cd backend && npm install
+            npm install 
             npm run migrations > migration_output.txt
             popd || exit
       - run:
