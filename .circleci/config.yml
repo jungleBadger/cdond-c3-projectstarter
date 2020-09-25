@@ -261,3 +261,6 @@ workflows:
           requires:
             - deploy-frontend-infrastructure
             - deploy-backend-infrastructure
+      - configure-infrastructure:
+          requires:
+            - deploy-cloudfront-infrastructure
