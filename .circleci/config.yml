@@ -288,6 +288,7 @@ jobs:
       - run:
           name: Setup EC2 instance & copy compiled backend to the EC2 instance
           command: |
+            #!/bin/bash
             pushd backend || exit
             apk add --update ansible
             apk add --update bash
@@ -324,6 +325,11 @@ jobs:
       - image: amazon/aws-cli
     steps:
       - checkout
+      - run:
+          name: Add tar and gzip
+          command: |
+            yum -y install tar
+            yum -y install gzip
       - attach_workspace:
           at: ~/
       - restore_cache:
@@ -331,8 +337,6 @@ jobs:
       - run:
           name: Copy frontend to s3 bucket.
           command: |
-            yum -y install tar
-            yum -y install gzip
             export API_URL=`cat .circleci/outputs/backend_url.txt`
             pushd frontend || exit
             aws s3 cp dist s3://udapeople-${CIRCLE_WORKFLOW_ID:0:7} --recursive
