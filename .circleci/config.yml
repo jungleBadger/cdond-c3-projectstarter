@@ -259,7 +259,7 @@ jobs:
             pushd backend || exit
             if grep -q "has been executed successfully." migration_output.txt
             then
-              touch .circleci/outputs/db_migration_success
+              touch .circleci/outputs/db_migration_success/migration_output.txt
             fi
             popd || exit
       - destroy_environment:
@@ -267,7 +267,7 @@ jobs:
       - persist_to_workspace:
           root: ~/
           paths:
-            - project/.circleci/outputs/db_migration_success/migration_output.txt
+            - project/.circleci/outputs/db_migration_success
 
   deploy-backend:
     docker:
