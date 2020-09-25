@@ -248,6 +248,7 @@ jobs:
       - run:
           name: Run DB migrations
           # added second line - npm install -----------------------
+          # --------------
           command: |
             pushd backend || exit
             npm install 
