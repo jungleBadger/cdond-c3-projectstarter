@@ -273,7 +273,7 @@ jobs:
 
   deploy-backend:
     docker:
-      - image: circleci/node:13.8.0
+      - image: circleci/python:3.6.6-node
     steps:
       - checkout
       - restore_cache:
@@ -289,9 +289,7 @@ jobs:
           name: Setup EC2 instance & copy compiled backend to the EC2 instance
           command: |
             pushd backend || exit
-            apk add --update ansible
-            apk add --update bash
-            ansible-galaxy install weareinteractive.environment
+            pip install ansible
             ansible-playbook -i inventory.txt playbook.yml
             popd || exit
       - destroy_environment:
