@@ -1,2 +1,4 @@
 1. GitHub Repository [URL01]
 https://github.com/gavischneider/cdond-c3-projectstarter
+
+2. Provide the public URL for your S3 Bucket (aka, your front-end). [URL02]
