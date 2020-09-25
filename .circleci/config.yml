@@ -267,7 +267,7 @@ jobs:
       - persist_to_workspace:
           root: ~/
           paths:
-            - project/.circleci/outputs/db_migration_success
+            - project/.circleci/outputs/db_migration_success/migration_output.txt
 
   deploy-backend:
     docker:
