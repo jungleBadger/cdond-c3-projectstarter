@@ -210,9 +210,19 @@ jobs:
       - destroy_environment:
           workflow_id: "${CIRCLE_WORKFLOW_ID:0:7}"
 
-# Added files for push ...
-
-#  configure-infrastructure:
+  configure-infrastructure:
+    docker:
+      - image: python:3.7-alpine3.11
+    steps:
+      - checkout
+      - add_ssh_keys:
+          fingerprints: ["a3:39:13:52:0e:1e:17:f9:ed:14:a5:6a:3b:39:94:59"]
+      - run:
+          name: Install dependencies
+          command: |
+            apk add --update ansible
+      - destroy_environment:
+          workflow_id: "${CIRCLE_WORKFLOW_ID:0:7}"
 
 #  run-migrations:
 

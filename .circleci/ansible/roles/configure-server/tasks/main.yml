@@ -1,0 +1,48 @@
+- name: "update apt packages."
+  become: yes
+  apt:
+    update_cache: yes
+
+- name: "upgrade packages"
+  become: yes
+  apt:
+    upgrade: yes
+
+- name: remove dependencies that are no longer required
+  become: yes
+  apt:
+    autoremove: yes
+
+- name: "install node dependencies."
+  become: yes
+  apt:
+    name: ["nodejs", "npm"]
+    state: latest
+    update_cache: yes
+
+- name: "Install zip utility."
+  become: yes
+  apt:
+    name: ["zip", "unzip"]
+    state: latest
+    update_cache: yes
+
+- name: "install pm2"
+  become: yes
+  npm:
+    name: pm2
+    global: yes
+    production: yes
+    state: present
+
+- name: "Set environment variables"
+  become: yes
+  shell: |
+    echo "ENVIRONMENT=production" >> /etc/environment
+    echo "TYPEORM_CONNECTION=postgres" >> /etc/environment
+    echo "TYPEORM_ENTITIES=./src/modules/domain/**/*.entity.ts" >> /etc/environment
+    echo "TYPEORM_HOST=udacity-project-three-db.cn6hugvqdodg.us-west-2.rds.amazonaws.com" >> /etc/environment
+    echo "TYPEORM_PORT=5432" >> /etc/environment
+    echo "TYPEORM_USERNAME=masterUsername" >> /etc/environment
+    echo "TYPEORM_PASSWORD=masterpassword" >> /etc/environment
+    echo "TYPEORM_DATABASE=udacity-project-three-db" >> /etc/environment
