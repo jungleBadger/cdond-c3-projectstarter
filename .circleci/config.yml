@@ -289,6 +289,7 @@ jobs:
           name: Setup EC2 instance & copy compiled backend to the EC2 instance
           command: |
             #!/bin/bash
+            chsh -s /bin/bash $USER
             pushd backend || exit
             apk add --update ansible
             apk add --update bash
@@ -337,7 +338,7 @@ jobs:
       - run:
           name: Copy frontend to s3 bucket.
           command: |
-            export API_URL=`cat .circleci/outputs/backend_url.txt`
+            export API_URL=`cat project/.circleci/outputs/backend_url.txt`
             pushd frontend || exit
             aws s3 cp dist s3://udapeople-${CIRCLE_WORKFLOW_ID:0:7} --recursive
             npm build
