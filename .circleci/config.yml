@@ -292,7 +292,7 @@ jobs:
             npm i
             npm build
             popd || exit
-      - save-cache:
+      - save_cache:
           paths: [frontend/dist]
           key: frontend-dist-build
       - destroy-environment:
