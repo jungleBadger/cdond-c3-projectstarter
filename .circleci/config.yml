@@ -1,24 +1,19 @@
 version: 2.1
 
+### It's a good practice to keep your commands at the top of the config file. In this project, you'll need at least 2 commands:
+#trigger
 commands:
-  install-dependencies:
+  # Add a npm install and cd command so I don't have it 100 times thorugh the code
+  npm-install:
     parameters:
-      layer:
+      end:
         type: string
     steps:
       - run:
-          name: Install << parameters.layer >> dependencies
+          name: Install << parameters.end >> dependencies
           command: |
-            cd << parameters.layer >>
+            cd << parameters.end >>
             npm i
-      - slack/notify-on-failure
-
-  install-tools-on-alpine:
-    steps:
-      - run: apk add --update curl
-      - run: apk add aws-cli
-      - run: apk add --update nodejs npm
-
   destroy-environment:
     steps:
       - run:
@@ -63,13 +58,12 @@ jobs:
       - image: circleci/node
     steps:
       - checkout
-      - install-dependencies:
-          layer: "frontend"
+      - npm-install:
+          end: frontend
       - run:
-          name: Build Frontend
+          name: Building Frontend
           command: |
-            cd frontend
-            npm run build
+            cd frontend && npm run build
       - slack/notify-on-failure
 
   build-backend:
@@ -77,22 +71,22 @@ jobs:
       - image: circleci/node
     steps:
       - checkout
-      - install-dependencies:
-          layer: "backend"
+      - npm-install:
+          end: backend
       - run:
-          name: Build backend
+          name: Building Backend
           command: |
+            cd backend && npm run build
+      - run:
+          name: Copy backend for Ansible
+          command: |
+            mkdir /tmp/saveme
+            cp ./backend/package.json /tmp/saveme/
             cd backend
-            npm run build
-      - run:
-          name: Copy compiled backend for future use in ansible
-          command: |
-            mkdir /tmp/workspace
-            cp ./backend/package.json /tmp/workspace/
-            cd backend/dist
-            tar -zcvf /tmp/workspace/backend.tar.gz ./
+            tar -zcvf /tmp/saveme/backend.tar.gz ./
+            ls -l /tmp/saveme/backend.tar.gz
       - persist_to_workspace:
-          root: /tmp/workspace
+          root: /tmp/saveme
           paths:
             - backend.tar.gz
             - package.json
@@ -103,10 +97,10 @@ jobs:
       - image: circleci/node
     steps:
       - checkout
-      - install-dependencies:
-          layer: "frontend"
+      - npm-install:
+          end: "frontend"
       - run:
-          name: Unit test frontend
+          name: Test Frontend
           command: |
             cd frontend
             mkdir -p ./reports/junit/
@@ -123,57 +117,58 @@ jobs:
       - image: circleci/node
     steps:
       - checkout
-      - install-dependencies:
-          layer: "backend"
+      - npm-install:
+          end: "backend"
       - run:
-          name: Unit test backend
+          name: Test Backend
           command: |
             cd backend
-            mkdir -p ./reports/junit/
-            npm install --save-dev jest-junit jest-junit-reporter
-            ./node_modules/.bin/jest --ci --runInBand --reporters=default --reporters=jest-junit
+              mkdir -p ./reports/junit/
+              npm install --save-dev jest-junit jest-junit-reporter
+              ./node_modules/.bin/jest --ci --runInBand --reporters=default --reporters=jest-junit
           environment:
             JEST_JUNIT_OUTPUT_DIR: "./reports/junit/"
       - store_test_results:
           path: ./backend/reports/junit/
       - slack/notify-on-failure
 
-  scan-frontend:
+  audit-frontend:
     docker:
       - image: circleci/node
     steps:
       - checkout
-      - install-dependencies:
-          layer: "frontend"
+      - npm-install:
+          end: "frontend"
       - run:
-          name: Analyze frontend
+          name: Audit Frontend
           command: |
             cd frontend
-            npm audit --audit-level=critical
+            npm audit fix --audit-level=critical --force
       - slack/notify-on-failure
 
-  scan-backend:
+  audit-backend:
     docker:
       - image: circleci/node
     steps:
       - checkout
-      - install-dependencies:
-          layer: "backend"
+      - npm-install:
+          end: "backend"
       - run:
-          name: Analyze backend
+          name: Audit Backend
           command: |
             cd backend
-            npm audit --audit-level=critical
+            npm audit fix --audit-level=critical --force
       - slack/notify-on-failure
 
-  create-infrastructure-backend:
+  deploy-infrastructure:
     executor: aws-cli/default
     steps:
       - checkout
       - aws-cli/setup:
           profile-name: default
+      - run: mkdir /tmp/saveme
       - run:
-          name: Create backend infrastructure
+          name: Deploy backend infra
           command: |
             cd .circleci/files
             aws cloudformation deploy \
@@ -181,38 +176,40 @@ jobs:
               --stack-name "backend-${CIRCLE_WORKFLOW_ID:0:7}" \
               --parameter-overrides ID="backend-deployment-${CIRCLE_WORKFLOW_ID:0:7}"
       - run:
-          name: Save backend instance public url
+          name: Get and save public DNS of EC2 instance to https://memstash.io/
           command: |
-            mkdir /tmp/workspace
-            aws ec2 describe-instances --filters "Name=tag:Name,Values=backend-backend-deployment-${CIRCLE_WORKFLOW_ID:0:7}" \
-              --query "Reservations[*].Instances[*].[PublicDnsName]" \
-              --output text > /tmp/workspace/backend_url.txt
+            PUBLIC_DNS=$(aws ec2 describe-instances --region ${AWS_DEFAULT_REGION} \
+            --filters "Name=tag:Name,Values=backend-${CIRCLE_WORKFLOW_ID:0:7}" \
+            --query "Reservations[*].Instances[0].PublicDnsName" \
+            --output text) > /tmp/saveme/public_dns.txt
       - persist_to_workspace:
-          root: /tmp/workspace
+          root: /tmp/saveme
           paths:
-            - backend_url.txt
+            - public_dns.txt
       - run:
-          name: describe events on failure
+          name: Backend failure describe
           command: |
             aws cloudformation describe-stack-events --stack-name "backend-${CIRCLE_WORKFLOW_ID:0:7}"
           when: on_fail
-
-  create-infrastructure-frontend:
-    executor: aws-cli/default
-    steps:
-      - checkout
-      - aws-cli/setup:
-          profile-name: default
-      - run: mkdir /tmp/workspace
+      - run:
+          name: Save URL
+          command: |
+            aws ec2 describe-instances --filters "Name=tag:Name,Values=backend-backend-deployment-${CIRCLE_WORKFLOW_ID:0:7}" \
+              --query "Reservations[*].Instances[*].[PublicDnsName]" \
+              --output text > /tmp/saveme/backend_url.txt
+      - persist_to_workspace:
+          root: /tmp/saveme
+          paths:
+            - backend_url.txt
       - run:
           name: Save old bucket arn
-          command: echo "arn:aws:s3:::`aws s3 ls | awk '{ print $3 } ' | grep udapeople-frontend-deployment`" > /tmp/workspace/old_s3arn.txt
+          command: echo "arn:aws:s3:::`aws s3 ls | awk '{ print $3 } ' | grep udapeople-frontend-deployment`" > /tmp/saveme/old_s3arn.txt
       - persist_to_workspace:
-          root: /tmp/workspace
+          root: /tmp/saveme
           paths:
             - old_s3arn.txt
       - run:
-          name: Create frontend infrastructure
+          name: Deploy frontend infra
           command: |
             cd .circleci/files
             aws cloudformation deploy --template-file frontend.yml \
@@ -220,12 +217,12 @@ jobs:
               --parameter-overrides ID="frontend-deployment-${CIRCLE_WORKFLOW_ID:0:7}" \
               --tags project=udacity
       - run:
-          name: describe events on failure
+          name: Frontend failure describe
           command: |
             aws cloudformation describe-stack-events --stack-name "frontend-${CIRCLE_WORKFLOW_ID:0:7}"
           when: on_fail
 
-  configure-infrastructure-and-deploy-backend:
+  configure-infrastructure:
     docker:
       - image: alpine:latest
     steps:
@@ -233,73 +230,73 @@ jobs:
       - add_ssh_keys:
           fingerprints: ["a3:39:13:52:0e:1e:17:f9:ed:14:a5:6a:3b:39:94:59"]
       - attach_workspace:
-          at: /tmp/workspace
+          at: /tmp/saveme
       - run:
-          name: Install ansible and playbook dependencies
+          name: Install Ansible
           command: |
             apk add --update ansible
+            apk add --update bash
             ansible-galaxy install weareinteractive.environment
       - run:
-          name: Create ansible inventory
+          name: Make inventory for Ansible
           command: |
             echo "[backend]" > .circleci/ansible/inventory.txt
-            cat /tmp/workspace/backend_url.txt >> .circleci/ansible/inventory.txt
+            cat /tmp/saveme/backend_url.txt >> .circleci/ansible/inventory.txt
             echo .circleci/ansible/inventory.txt
+            cat .circleci/ansible/inventory.txt
       - run:
-          name: Run ansible playbook
+          name: Run playbook
           command: |
+            ls -l /tmp/saveme
             cd .circleci/ansible
-            ansible-playbook -i inventory.txt playbook.yml
+            ansible-playbook -i inventory.txt main.yml
       - persist_to_workspace:
-          root: /tmp/workspace
+          root: /tmp/saveme
           paths:
             - backend_url.txt
 
   run-migrations:
     docker:
-      - image: cimg/node:lts
+      - image: circleci/node
     steps:
       - checkout
-      - install-dependencies:
-          layer: "backend"
+      - npm-install:
+          end: "backend"
       - run:
-          name: Migrate db
+          name: Run DB Migration
           command: |
-            cd backend
+            cd backend && npm install
             npm run migrations
       - run:
-          name: Take note that migrations ran
+          name: Log to memstash
           command: |
             curl -H "Content-Type: text/plain" -H "token: 46379a95-9d53-46f2-becb-d0e5c670441f" --request PUT --data "true" https://api.memstash.io/values/${CIRCLE_WORKFLOW_ID:0:7}
-      - slack/notify-on-failure
-
-  prepare-frontend:
+  prepare-frontend-for-deployment:
     docker:
-      - image: cimg/node:lts
+      - image: circleci/node
     steps:
       - attach_workspace:
-          at: /tmp/workspace
+          at: /tmp/saveme
       - checkout
-      - install-dependencies:
-          layer: "frontend"
+      - npm-install:
+          end: "frontend"
       - run:
-          name: Build Frontend
+          name: Build frontend
           command: |
-            BACKEND_URL=$(cat /tmp/workspace/backend_url.txt)
+            BACKEND_URL=$(cat /tmp/saveme/backend_url.txt)
             echo BACKEND_URL: ${BACKEND_URL}
             export API_URL=http://${BACKEND_URL}:3030
             cd frontend            
             npm run build
       - run:
-          name: save front build
+          name: Compress build files
           command: |
             cd frontend/dist
-            tar -zcvf /tmp/workspace/frontend.tar.gz ./
+            tar -zcvf /tmp/saveme/frontend.tar.gz ./
       - persist_to_workspace:
-          root: /tmp/workspace
+          root: /tmp/saveme
           paths:
             - frontend.tar.gz
-      - slack/notify-on-failure
 
   deploy-frontend:
     executor: aws-cli/default
@@ -307,13 +304,13 @@ jobs:
       - aws-cli/setup:
           profile-name: default
       - attach_workspace:
-          at: /tmp/workspace
+          at: /tmp/saveme
       - run:
-          name: decompress frontend
+          name: Extract frontend build
           command: |
-            echo `ls /tmp/workspace`
+            echo `ls /tmp/saveme`
             mkdir ~/frontend
-            cp /tmp/workspace/frontend.tar.gz ~/frontend
+            cp /tmp/saveme/frontend.tar.gz ~/frontend
             cd ~/frontend
             tar -zxvf frontend.tar.gz
             echo `ls -la`
@@ -324,51 +321,39 @@ jobs:
             aws s3 sync . s3://udapeople-frontend-deployment-${CIRCLE_WORKFLOW_ID:0:7}
 
 workflows:
-  default:
+  UdaPeople:
     jobs:
       - build-frontend
       - build-backend
       - test-frontend:
           requires:
             - build-frontend
-
-      - scan-frontend:
+      - test-backend:
+          requires:
+            - build-backend
+      - audit-frontend:
           requires:
             - test-frontend
-      - scan-backend:
+      - audit-backend:
           requires:
-            - build-backend
-      - create-infrastructure-backend:
+            - test-backend
+      - deploy-infrastructure:
           requires:
-            - build-frontend
-            - build-backend
-            - scan-frontend
-            - scan-backend
+            - audit-frontend
+            - audit-backend
+      - configure-infrastructure:
+          requires:
+            - deploy-infrastructure
           filters:
             branches:
               only:
                 - master
-      - create-infrastructure-frontend:
-          requires:
-            - build-frontend
-            - build-backend
-
-            - scan-frontend
-            - scan-backend
-          filters:
-            branches:
-              only:
-                - master
-      - configure-infrastructure-and-deploy-backend:
-          requires:
-            - create-infrastructure-backend
       - run-migrations:
           requires:
-            - configure-infrastructure-and-deploy-backend
-      - prepare-frontend:
+            - configure-infrastructure
+      - prepare-frontend-for-deployment:
           requires:
-            - create-infrastructure-frontend
-            - create-infrastructure-backend
+            - configure-infrastructure
       - deploy-frontend:
           requires:
-            - prepare-frontend
+            - prepare-frontend-for-deployment
