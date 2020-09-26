@@ -309,7 +309,7 @@ jobs:
           command: |
             yum -y install tar
             yum -y install gzip
-      - attach-workspace:
+      - attach_workspace:
           at: ~/
       - restore_cache:
           keys: [frontend-dist-build]
