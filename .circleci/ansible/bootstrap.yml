@@ -17,6 +17,8 @@
 
     - setup:
 
+  gather_facts: false
+
   roles:
     #    - configure-prometheus-node-exporter
     - configure-server
