@@ -1,5 +1,6 @@
-- name: Adding Python-pip
-  apt: name=python-pip state=latest
+- name: Adding Python
+  shell: |
+    sudo apt-get install python-minimal -y
 
 - name: "install node 12.X"
   shell: |

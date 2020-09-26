@@ -249,8 +249,6 @@ jobs:
           command: |
             ls -l /tmp/saveme
             cd .circleci/ansible
-          # Added
-            apt-get install python-minimal -y
             ansible-playbook -i inventory.txt main.yml
       - persist_to_workspace:
           root: /tmp/saveme
