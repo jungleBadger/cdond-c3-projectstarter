@@ -339,7 +339,7 @@ workflows:
             - test-frontend
       - scan-backend:
           requires:
-            - build-backend
+            - test-backend
       - create-infrastructure-backend:
           requires:
             - build-frontend
