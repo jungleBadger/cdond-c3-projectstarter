@@ -252,7 +252,7 @@ jobs:
       - image: amazon/aws-cli
     steps:
       - checkout
-      - restore-cache:
+      - restore_cache:
           keys: [backend-build]
       - run: yum -y install nodejs13
       - run:
@@ -283,7 +283,7 @@ jobs:
       - image: circleci/node:13.8.0
     steps:
       - checkout
-      - restore-cache:
+      - restore_cache:
           keys: [frontend-build]
       - run:
           name: Package frontend app
@@ -330,7 +330,7 @@ jobs:
 #  cloudfront-update:
 
 workflows:
-  default:
+  my-workflow:
     jobs:
       - build-frontend
       - build-backend
