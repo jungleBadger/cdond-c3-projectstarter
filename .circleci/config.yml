@@ -171,7 +171,7 @@ jobs:
             echo "[all]\n$BACKEND_AWS_PUBLIC_IP" >> .circleci/ansible/inventory.txt
             echo "http://${BACKEND_AWS_PUBLIC_IP}:3030" >> .circleci/outputs/backend_url.txt
             cat .circleci/outputs/backend_url.txt
-      - persist-to-workspace:
+      - persist_to_workspace:
           root: ~/
           paths:
             - project/.circleci/outputs/backend_url.txt
@@ -217,7 +217,7 @@ jobs:
               --template-file cloudfront.yml \
               --parameter-overrides ID="prod-${CIRCLE_WORKFLOW_ID:0:7}" \
               --stack-name udapeople-prod-cloudfront-${CIRCLE_WORKFLOW_ID:0:7}
-      - persist-to-workspace:
+      - persist_to_workspace:
           root: ~/
           paths:
             - project/.circleci/outputs/previous_bucket_id_suffix.txt
@@ -242,7 +242,7 @@ jobs:
       # -------------------------=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
       - destroy-environment:
           workflow_id: "${CIRCLE_WORKFLOW_ID:0:7}"
-      - persist-to-workspace:
+      - persist_to_workspace:
           root: ~/
           paths:
             - project/.circleci/outputs/db_migration_success
@@ -356,12 +356,9 @@ workflows:
           requires:
             - deploy-frontend-infrastructure
             - deploy-backend-infrastructure
-      - configure-infrastructure:
-          requires:
-            - deploy-cloudfront-infrastructure
       - run-migrations:
           requires:
-            - configure-infrastructure
+            - deploy-cloudfront-infrastructure
       - deploy-backend:
           requires:
             - run-migrations
