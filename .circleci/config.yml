@@ -342,8 +342,6 @@ workflows:
           requires:
             - build-frontend
             - build-backend
-            - test-frontend
-            - test-backend
             - scan-frontend
             - scan-backend
           filters:
@@ -354,8 +352,7 @@ workflows:
           requires:
             - build-frontend
             - build-backend
-            - test-frontend
-            - test-backend
+
             - scan-frontend
             - scan-backend
           filters:
