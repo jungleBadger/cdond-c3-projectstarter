@@ -15,7 +15,7 @@ commands:
             cd << parameters.end >>
             npm i
 
-  destroy_environment:
+  destroy-environment:
     description: Destroy backend and frontend cloudformation stacks given a workflow ID.
     parameters:
       workflow_id:
@@ -171,11 +171,11 @@ jobs:
             echo "[all]\n$BACKEND_AWS_PUBLIC_IP" >> .circleci/ansible/inventory.txt
             echo "http://${BACKEND_AWS_PUBLIC_IP}:3030" >> .circleci/outputs/backend_url.txt
             cat .circleci/outputs/backend_url.txt
-      - persist_to_workspace:
+      - persist-to-workspace:
           root: ~/
           paths:
             - project/.circleci/outputs/backend_url.txt
-      - destroy_environment:
+      - destroy-environment:
           workflow_id: "${CIRCLE_WORKFLOW_ID:0:7}"
 
   deploy-frontend-infrastructure:
@@ -191,7 +191,7 @@ jobs:
               --template-file frontend.yml \
               --parameter-overrides ID="prod-${CIRCLE_WORKFLOW_ID:0:7}" \
               --stack-name udapeople-prod-frontend-${CIRCLE_WORKFLOW_ID:0:7}
-      - destroy_environment:
+      - destroy-environment:
           workflow_id: "${CIRCLE_WORKFLOW_ID:0:7}"
 
   deploy-cloudfront-infrastructure:
@@ -217,67 +217,44 @@ jobs:
               --template-file cloudfront.yml \
               --parameter-overrides ID="prod-${CIRCLE_WORKFLOW_ID:0:7}" \
               --stack-name udapeople-prod-cloudfront-${CIRCLE_WORKFLOW_ID:0:7}
-      - persist_to_workspace:
+      - persist-to-workspace:
           root: ~/
           paths:
             - project/.circleci/outputs/previous_bucket_id_suffix.txt
-      - destroy_environment:
-          workflow_id: "${CIRCLE_WORKFLOW_ID:0:7}"
-
-  configure-infrastructure:
-    docker:
-      - image: python:3.7-alpine3.11
-    steps:
-      - checkout
-      - add_ssh_keys:
-          fingerprints: ["a3:39:13:52:0e:1e:17:f9:ed:14:a5:6a:3b:39:94:59"]
-      - run:
-          name: Install Ansible
-          command: |
-            apk add --update ansible
-            apk add --update bash
-            ansible-galaxy install weareinteractive.environment
-      - destroy_environment:
+      - destroy-environment:
           workflow_id: "${CIRCLE_WORKFLOW_ID:0:7}"
 
   run-migrations:
     docker:
-      - image: circleci/node:13.8.0
+      - image: amazon/aws-cli
     steps:
       - checkout
-      - npm-install:
-          end: "backend"
+      - restore_cache:
+          keys: [backend-build]
       - run:
-          name: Run DB migrations
-          # added second line - npm install -----------------------
+          name: Install nodejs
           command: |
-            pushd backend || exit
-            npm install 
-            npm run migrations > migration_output.txt
-            popd || exit
-      - run:
-          name: Store migration result in a file.
-          command: |
-            pushd backend || exit
-            if grep -q "has been executed successfully." migration_output.txt
-            then
-              touch .circleci/outputs/db_migration_success/migration_output.txt
-            fi
-            popd || exit
-      - destroy_environment:
+            sudo yum update
+            curl –sL https://rpm.nodesource.com/setup_13.x | sudo bash -
+            sudo yum install –y nodejs
+            node -version
+
+      # -------------------------=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      - destroy-environment:
           workflow_id: "${CIRCLE_WORKFLOW_ID:0:7}"
-      - persist_to_workspace:
+      - persist-to-workspace:
           root: ~/
           paths:
             - project/.circleci/outputs/db_migration_success
 
   deploy-backend:
     docker:
-      - image: sitapati/docker-alpine-python-node
+      - image: amazon/aws-cli
     steps:
       - checkout
-      - restore_cache:
+      - restore-cache:
           keys: [backend-build]
+      - run: yum -y install nodejs13
       - run:
           name: Build backend app
           command: |
@@ -285,27 +262,28 @@ jobs:
             npm i
             npm build
             popd || exit
+      - add-ssh-keys:
+          fingerprints: ["a3:39:13:52:0e:1e:17:f9:ed:14:a5:6a:3b:39:94:59"]
       - run:
-          name: Setup EC2 instance & copy compiled backend to the EC2 instance
+          name: Install dependencies
           command: |
-            #!/bin/bash
-            chsh -s /bin/bash $USER
-            pushd backend || exit
             apk add --update ansible
-            apk add --update bash
-            ansible-galaxy install weareinteractive.environment
-            ansible-playbook -i inventory.txt playbook.yml
+      - run:
+          name: Setup EC2 instance and copy compiled backend to the EC2 instance
+          command: |
+            pushd backend || exit
+            ansible-playbook -i ~/project/.circleci/ansible/inventory.txt ~/project/.circleci/ansible/playbook.yml
             popd || exit
-      - destroy_environment:
+      - destroy-environment: # check
           workflow_id: "${CIRCLE_WORKFLOW_ID:0:7}"
-      - revert-migration
+      - revert-migrations
 
   package-frontend:
     docker:
       - image: circleci/node:13.8.0
     steps:
       - checkout
-      - restore_cache:
+      - restore-cache:
           keys: [frontend-build]
       - run:
           name: Package frontend app
@@ -314,10 +292,10 @@ jobs:
             npm i
             npm build
             popd || exit
-      - save_cache:
+      - save-cache:
           paths: [frontend/dist]
           key: frontend-dist-build
-      - destroy_environment:
+      - destroy-environment:
           workflow_id: "${CIRCLE_WORKFLOW_ID:0:7}"
       - revert-migration
 
@@ -331,7 +309,7 @@ jobs:
           command: |
             yum -y install tar
             yum -y install gzip
-      - attach_workspace:
+      - attach-workspace:
           at: ~/
       - restore_cache:
           keys: [frontend-dist-build]
@@ -343,7 +321,7 @@ jobs:
             aws s3 cp dist s3://udapeople-${CIRCLE_WORKFLOW_ID:0:7} --recursive
             npm build
             popd || exit
-      - destroy_environment:
+      - destroy-environment:
           workflow_id: "${CIRCLE_WORKFLOW_ID:0:7}"
       - revert-migration
 
