@@ -100,43 +100,27 @@ jobs:
 
   test-frontend:
     docker:
-      - image: circleci/node
+      - image: circleci/node:13.8.0
     steps:
       - checkout
-      - install-dependencies:
-          layer: "frontend"
       - run:
-          name: Unit test frontend
+          name: Test Frontend Code
           command: |
             cd frontend
-            mkdir -p ./reports/junit/
-            npm install --save-dev jest-junit jest-junit-reporter
-            ./node_modules/.bin/jest --ci --runInBand --reporters=default --reporters=jest-junit
-          environment:
-            JEST_JUNIT_OUTPUT_DIR: "./reports/junit/"
-      - store_test_results:
-          path: ./frontend/reports/junit/
-      - slack/notify-on-failure
+            npm i
+            npm run test
 
   test-backend:
     docker:
-      - image: circleci/node
+      - image: circleci/node:13.8.0
     steps:
       - checkout
-      - install-dependencies:
-          layer: "backend"
       - run:
-          name: Unit test backend
+          name: Test Backend Code
           command: |
             cd backend
-            mkdir -p ./reports/junit/
-            npm install --save-dev jest-junit jest-junit-reporter
-            ./node_modules/.bin/jest --ci --runInBand --reporters=default --reporters=jest-junit
-          environment:
-            JEST_JUNIT_OUTPUT_DIR: "./reports/junit/"
-      - store_test_results:
-          path: ./backend/reports/junit/
-      - slack/notify-on-failure
+            npm i
+            npm run test
 
   scan-frontend:
     docker:
