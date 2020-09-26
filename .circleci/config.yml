@@ -236,8 +236,23 @@ jobs:
           command: |
             yum update
             curl –sL https://rpm.nodesource.com/setup_13.x | bash -
-            yum install –y nodejs
+            yum -y install nodejs
             node -version
+      - run:
+          name: Run DB migrations
+          command: |
+            pushd backend || exit
+            npm run migrations >> migration_output.txt
+            popd || exit
+      - run:
+          name: Store migration in file
+          command: |
+            pushd backend || exit
+            if grep -q "has been executed successfully." migration_output.txt
+            then
+              touch .circleci/outputs/db_migration_success
+            fi
+            popd || exit
 
       # -------------------------=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
       - destroy-environment:
