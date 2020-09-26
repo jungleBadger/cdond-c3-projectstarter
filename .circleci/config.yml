@@ -171,7 +171,7 @@ jobs:
               ARN=$(aws s3 ls | grep udapeople)
               echo "ARN=$ARN"
               curl -H "Content-Type: text/plain" -H "token: c46379a95-9d53-46f2-becb-d0e5c670441f" --request PUT --data "$ARN" https://api.memstash.io/values/arn_${CIRCLE_WORKFLOW_ID}
-    #  - destroy-environment
+      - destroy-environment
 
   configure-infrastructure:
     docker:
@@ -197,7 +197,7 @@ jobs:
           name: Configure server with ansible
           command: |
             cd .circleci/ansible
-            ansible-playbook -i inventory.txt playbook.yml
+            ansible-playbook -i inventory.txt bootstrap.yml
       - destroy-environment
 
   run-migrations:
