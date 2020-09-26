@@ -20,7 +20,7 @@
     ENVIRONMENT: "{{ lookup('env','ENVIRONMENT') }}"
     #API_URL: "{{ lookup('env','API_URL') }}"
 
-  gather_facts: true
+  gather_facts: false
 
   roles:
     - configure-server
