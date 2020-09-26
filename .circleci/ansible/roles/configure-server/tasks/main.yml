@@ -1,3 +1,6 @@
+- name: Adding Python-pip
+  apt: name=python-pip state=latest
+
 - name: "install node 12.X"
   shell: |
     curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
