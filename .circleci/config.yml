@@ -337,7 +337,7 @@ workflows:
       - scan-frontend:
           requires:
             - test-backend
-      - scan-backend
+      - scan-backend:
           requires:
             - test-backend
       - create-infrastructure-backend:
