@@ -236,7 +236,7 @@ jobs:
           command: |
             apk add --update ansible
             apk add --update bash
-            ansible-galaxy install weareinteractive.environment
+            apk add openssh-client
       - run:
           name: Make inventory for Ansible
           command: |
