@@ -15,10 +15,6 @@
     production: yes
     state: present
 
-# - name: "copy files from CircleCI to server"
-#   copy:
-#     src: ~/backend
-#     dest: /home/ubuntu
 - name: Make backend dir
   file:
     path: /home/ubuntu/backend
