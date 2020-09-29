@@ -1,7 +1,10 @@
 ---
 - name: "Udapeople Server Configurations"
   hosts: all
+  # user: ubuntu
+
   user: ubuntu
+  gather_facts: true
 
   vars:
     - ansible_port: "22"
@@ -22,7 +25,7 @@
     - ENVIRONMENT: "{{ lookup('env','ENVIRONMENT') }}"
     #API_URL: "{{ lookup('env','API_URL') }}"
 
-  gather_facts: false
+  # gather_facts: false
 
   roles:
     - configure-server
